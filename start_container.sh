@@ -1,0 +1,1 @@
+podman run  -it --security-opt label=disable -e PULSE_SERVER=unix:$XDG_RUNTIME_DIR/pulse/native -v $XDG_RUNTIME_DIR/pulse/native:$XDG_RUNTIME_DIR/pulse/native --device nvidia.com/gpu=all   -v "$PWD":/workspace -e DISPLAY=:0 -v /tmp/.X11-unix:/tmp/.X11-unix:ro localhost/my-cuda-mpi-nsys:latest bash
