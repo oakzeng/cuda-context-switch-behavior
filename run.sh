@@ -1,60 +1,52 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./run.sh [MiB] [stride_bytes] [iters]
-# Example: ./run.sh 4096 65536 1
+# Usage: ./run.sh [MiB] [stride_bytes] [iters] [use_managed_memory] [use_mps]
+# Example: ./run.sh 4096 65536 5 1 1
 
 MIB=${1:-16384}
 STRIDE=${2:-65536}
 ITERS=${3:-5}
 USE_MANAGED_MEMORY=${4:-1}
+MPS=${5:-0}
 
 export CUDA_MODULE_LOADING=EAGER
 
 # Optional: start MPS for better multi-process sharing
-if command -v nvidia-cuda-mps-control >/dev/null 2>&1; then
-  echo "[run] Not Starting CUDA MPS"
-  #nvidia-cuda-mps-control -d || true
+if [[ $MPS -eq 1 ]] && command -v nvidia-cuda-mps-control >/dev/null 2>&1; then
+  echo "[run] Starting CUDA MPS"
+  sudo nvidia-cuda-mps-control -d || true
 else
-  echo "[run] CUDA MPS not found; continuing without it"
+  echo "[run] Not starting CUDA MPS"
 fi
 
 
-#nvidia-smi compute-policy --set-timeslice=1
+sudo nvidia-smi compute-policy --set-timeslice=1
 
 nvidia-smi compute-policy -l
-#CUDA_MODULE_LOADING=EAGER nsys profile -o fault_$(date +%Y%m%d_%H%M%S) --force-overwrite=true --trace=cuda,nvtx -s none --cpuctxsw=none --cuda-memory-usage=true --cuda-um-gpu-page-faults=true ./faulter "$MIB" "$STRIDE" "$ITERS" &
-#CUDA_MODULE_LOADING=EAGER nsys profile -o observer_$(date +%Y%m%d_%H%M%S) --force-overwrite=true --trace=cuda,nvtx -s none --cpuctxsw=none --cuda-memory-usage=true ./observer 1000000 500 | tee -a  observer_times.csv
 
-#mpirun -np 1 ./faulter "$MIB" "$STRIDE" "$ITERS" : -np 1 ./observer 1000 500
-#./faulter "$MIB" "$STRIDE" "$ITERS" &
-#./observer 1000000 500 | tee -a  observer_times.csv
-
-
-mpirun -quiet --bind-to none --tag-output \
-  -np 1 -x CUDA_MODULE_LOADING=EAGER \
-    nsys profile \
-      -o fault_$(date +%Y%m%d_%H%M%S) \
-      --force-overwrite=true \
-      --trace=cuda,nvtx,mpi \
-      -s none --cpuctxsw=none \
-      --cuda-memory-usage=true \
-      --cuda-um-gpu-page-faults=true \
-      ./faulter "$MIB" "$STRIDE" "$ITERS" \
-  : -np 1 -x CUDA_MODULE_LOADING=EAGER \
-    nsys profile \
-      -o observer_$(date +%Y%m%d_%H%M%S) \
-      --force-overwrite=true \
-      --trace=cuda,nvtx,mpi \
-      -s none --cpuctxsw=none \
-      --cuda-memory-usage=true \
-      ./observer 300 1000
+nsys profile \
+  -o fault-observer-MPS_$MPS-$(date +%Y%m%d_%H%M%S) \
+  --force-overwrite=true \
+  --trace=cuda,nvtx,mpi,osrt \
+  -s none --cpuctxsw=none \
+  --gpuctxsw=true \
+  --cuda-memory-usage=true \
+  --cuda-um-gpu-page-faults=true \
+  --cuda-um-cpu-page-faults=true \
+  mpirun -quiet --bind-to none --tag-output \
+    -np 1 -x CUDA_MODULE_LOADING=EAGER \
+      ./faulter "$MIB" "$STRIDE" "$ITERS" "$USE_MANAGED_MEMORY" \
+    : -np 1 -x CUDA_MODULE_LOADING=EAGER \
+      ./observer 300 500
 
 
+sudo nvidia-smi compute-policy --set-timeslice=0
 
 
-#nvidia-smi compute-policy --set-timeslice=0
+nvidia-smi compute-policy -l
 
-
-#nvidia-smi compute-policy -l
+if [[ $MPS -eq 1 ]]; then
+  echo quit | sudo nvidia-cuda-mps-control
+fi
 
