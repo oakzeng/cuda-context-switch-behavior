@@ -31,45 +31,26 @@ nvidia-smi compute-policy -l
 #./observer 1000000 500 | tee -a  observer_times.csv
 
 
-#mpirun -quiet --bind-to none --tag-output \
-#  -np 1 -x CUDA_MODULE_LOADING=EAGER \
-#    nsys profile \
-#      -o fault_$(date +%Y%m%d_%H%M%S) \
-#      --force-overwrite=true \
-#      --trace=cuda,nvtx,mpi \
-#      -s none --cpuctxsw=none \
-#      --cuda-memory-usage=true \
-#      --cuda-um-gpu-page-faults=true \
-#      ./faulter "$MIB" "$STRIDE" "$ITERS" \
-#  : -np 1 -x CUDA_MODULE_LOADING=EAGER \
-#    nsys profile \
-#      -o observer_$(date +%Y%m%d_%H%M%S) \
-#      --force-overwrite=true \
-#      --trace=cuda,nvtx,mpi \
-#      -s none --cpuctxsw=none \
-#      --cuda-memory-usage=true \
-#      ./observer 300 1000
-#
+mpirun -quiet --bind-to none --tag-output \
+  -np 1 -x CUDA_MODULE_LOADING=EAGER \
+    nsys profile \
+      -o fault_$(date +%Y%m%d_%H%M%S) \
+      --force-overwrite=true \
+      --trace=cuda,nvtx,mpi \
+      -s none --cpuctxsw=none \
+      --cuda-memory-usage=true \
+      --cuda-um-gpu-page-faults=true \
+      ./faulter "$MIB" "$STRIDE" "$ITERS" \
+  : -np 1 -x CUDA_MODULE_LOADING=EAGER \
+    nsys profile \
+      -o observer_$(date +%Y%m%d_%H%M%S) \
+      --force-overwrite=true \
+      --trace=cuda,nvtx,mpi \
+      -s none --cpuctxsw=none \
+      --cuda-memory-usage=true \
+      ./observer 300 1000
 
 
-nsys profile \
-  -o both_$(date +%Y%m%d_%H%M%S) \
-  --force-overwrite=true \
-  --trace=cuda,nvtx,mpi,osrt \
-  -s none --cpuctxsw=none \
-  --gpuctxsw=true \
-  --cuda-memory-usage=true \
-  --cuda-um-gpu-page-faults=true \
-  --cuda-um-cpu-page-faults=true \
-  --kill=none \
-  mpirun --allow-run-as-root --bind-to none --oversubscribe --tag-output \
-    --wdir "$PWD" \
-    -np 1 -x CUDA_MODULE_LOADING=EAGER \
-      ./faulter "$MIB" "$STRIDE" "$ITERS" "$USE_MANAGED_MEMORY" \
-    : -np 1 -x CUDA_MODULE_LOADING=EAGER \
-      ./observer 300 500 \
-    : -np 1 -x CUDA_MODULE_LOADING=EAGER \
-    -x NO_AT_BRIDGE=1 firefox "https://www.youtube.com/watch?v=KLuTLF3x9sA&t=75s"
 
 
 #nvidia-smi compute-policy --set-timeslice=0
