@@ -61,75 +61,40 @@ int main(int argc, char** argv) {
     CHECK_MPI(MPI_Comm_size(MPI_COMM_WORLD, &size));
 
     // Parse args
-    double target_seconds = 2.0;
-    int blocks = 1;
-    int threads = 128;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string a(argv[i]);
-        if (a == "--seconds" && i + 1 < argc) target_seconds = atof(argv[++i]);
-        else if (a == "--blocks" && i + 1 < argc) blocks = atoi(argv[++i]);
-        else if (a == "--threads" && i + 1 < argc) threads = atoi(argv[++i]);
-        else if (a == "--help" || a == "-h") usage_and_exit(rank);
-        else { if (rank==0) std::cerr << "Unknown arg: " << a << "\n"; usage_and_exit(rank); }
-    }
-    if (threads <= 0 || (threads % 32) != 0 || blocks <= 0 || target_seconds <= 0.0) usage_and_exit(rank);
+    int blocks = 1; //number of threadblocks
+    int threads = 128; //threadblock size
 
     // Pin all ranks to the same GPU (GPU 0). Prefer setting CUDA_VISIBLE_DEVICES=0 externally.
     CHECK_CUDA(cudaSetDevice(0));
 
+    cudaDeviceProp prop{};
+    CHECK_CUDA(cudaGetDeviceProperties(&prop, 0));
     // Show device basics once
     if (rank == 0) {
-        cudaDeviceProp prop{};
-        CHECK_CUDA(cudaGetDeviceProperties(&prop, 0));
         std::cout << "Device: " << prop.name
                   << " | SMs: " << prop.multiProcessorCount
                   << " | Warp size: " << prop.warpSize
                   << " | Max blocks/SM: " << prop.maxBlocksPerMultiProcessor
                   << "\n";
     }
+    blocks = prop.multiProcessorCount;
 
     // Allocate small output buffer
     const size_t out_elems = 1024;
     float *d_out = nullptr;
     CHECK_CUDA(cudaMalloc(&d_out, out_elems * sizeof(float)));
 
-    // Calibration: pick iterations to approximate target_seconds
-    const int base_iters = 50'000'000; // 50M
+    const int iters = 50'000'000; // 50M, about 5seconds on H200
     dim3 grid(blocks), block(threads);
-
     cudaEvent_t c_start, c_stop;
     CHECK_CUDA(cudaEventCreate(&c_start));
     CHECK_CUDA(cudaEventCreate(&c_stop));
-
-    // Warmup (optional)
-    long_kernel<<<grid, block>>>(d_out, 10'000);
-    CHECK_CUDA(cudaPeekAtLastError());
-    CHECK_CUDA(cudaDeviceSynchronize());
-
-    CHECK_MPI(MPI_Barrier(MPI_COMM_WORLD)); // align calibration
-    CHECK_CUDA(cudaEventRecord(c_start));
-    long_kernel<<<grid, block>>>(d_out, base_iters);
-    CHECK_CUDA(cudaEventRecord(c_stop));
-    CHECK_CUDA(cudaEventSynchronize(c_stop));
-
-    float ms_calib = 0.0f;
-    CHECK_CUDA(cudaEventElapsedTime(&ms_calib, c_start, c_stop));
-    double s_calib = ms_calib / 1000.0;
-    // Calculate iterations for target_seconds, clamp to at least 1
-    long long timed_iters = std::max(1LL, (long long)std::llround((target_seconds / std::max(1e-6, s_calib)) * base_iters));
-
-    if (rank == 0) {
-        std::cout << "Calibration: " << s_calib << " s for " << base_iters
-                  << " iters -> using " << timed_iters << " iters for target ~"
-                  << target_seconds << " s\n";
-    }
 
     CHECK_MPI(MPI_Barrier(MPI_COMM_WORLD)); // synchronize start of measured pass
 
     double t0 = MPI_Wtime();
     CHECK_CUDA(cudaEventRecord(c_start));
-    long_kernel<<<grid, block>>>(d_out, (int)timed_iters);
+    long_kernel<<<grid, block>>>(d_out, (int)iters);
     CHECK_CUDA(cudaEventRecord(c_stop));
     CHECK_CUDA(cudaEventSynchronize(c_stop));
     double t1 = MPI_Wtime();
