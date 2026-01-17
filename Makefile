@@ -15,7 +15,7 @@ LDFLAGS  := -ldl
 CUDART   := -L$(CUDA_HOME)/lib64 -lcudart -lcuda
 
 
-all: faulter observer glmark2_mpi_wrapper two_process_ptr_crash two_contexts_illegal_access sminfo
+all: faulter observer glmark2_mpi_wrapper two_process_ptr_crash two_contexts_illegal_access sminfo mps
 
 # Compile the CUDA source; pass MPI compile flags so <mpi.h> is found
 faulter.o: faulter.cu
@@ -30,6 +30,12 @@ observer.o: observer.cu
 	$(NVCC) $(NVFLAGS) -I third_party $(MPI_COMPILE_FLAGS) -c $< -o $@
 
 observer: observer.o
+	$(MPI_CXX) $(CXXFLAGS) $^ -o $@ $(MPI_LINK_FLAGS) $(CUDART) $(LDFLAGS)
+
+mps.o: mps.cu
+	$(NVCC) $(NVFLAGS) -I third_party $(MPI_COMPILE_FLAGS) -c $< -o $@
+
+mps: mps.o
 	$(MPI_CXX) $(CXXFLAGS) $^ -o $@ $(MPI_LINK_FLAGS) $(CUDART) $(LDFLAGS)
 
 glmark2_mpi_wrapper: glmark2_mpi_wrapper.c
@@ -55,4 +61,4 @@ clean:
 	rm -f ./glmark2_mpi_wrapper
 	rm -f ./two_process_ptr_crash
 	rm -f ./two_contexts_illegal_access
-	rm -f ./sminfo
+	rm -f ./sminfo ./mps
