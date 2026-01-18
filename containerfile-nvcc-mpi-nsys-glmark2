@@ -25,6 +25,7 @@ RUN apt-get update \
 
 RUN apt-get update \
   && apt-get install -y software-properties-common \
+  && apt-get install -y nvidia-cuda-toolkit \
   && add-apt-repository -y universe \
   && apt-get update \
   && apt-get install -y libpulse0 pulseaudio-utils \
