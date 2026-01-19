@@ -1,5 +1,6 @@
 
-CUDA_HOME ?= /usr/local/cuda-13.1
+CUDA_HOME ?= /usr/local/cuda
+#CUDA_HOME ?= $(dir $(dir $(shell which nvcc)))
 MPI_CXX   ?= mpicxx
 
 # Query Open MPI for its compile/link flags
