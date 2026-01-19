@@ -62,9 +62,15 @@ int main() {
     CUctxCreateParams params{};
     CUcontext ctxA = nullptr, ctxB = nullptr, ctxC = nullptr;
 
+#if CUDART_VERSION >= 13000
     CHECK_CU(cuCtxCreate(&ctxA, &params, /*flags*/0, dev));
     CHECK_CU(cuCtxCreate(&ctxB, &params, /*flags*/0, dev));
     CHECK_CU(cuCtxCreate(&ctxC, &params, /*flags*/0, dev));
+#else
+    CHECK_CU(cuCtxCreate(&ctxA, /*flags*/0, dev));
+    CHECK_CU(cuCtxCreate(&ctxB, /*flags*/0, dev));
+    CHECK_CU(cuCtxCreate(&ctxC, /*flags*/0, dev));
+#endif
 
     // =========================== Context A ===========================
     CHECK_CU(cuCtxSetCurrent(ctxA));
