@@ -43,6 +43,8 @@ int main(int argc, char** argv) {
     int iters = 1;              // number of kernel iterations
     int use_managed_memory = 1;
 
+    printf("faulter PID %d\n", getpid());
+
     if (argc > 1) mib = strtoull(argv[1], nullptr, 0);
     if (argc > 2) stride = strtoull(argv[2], nullptr, 0);
     if (argc > 3) iters = atoi(argv[3]);
