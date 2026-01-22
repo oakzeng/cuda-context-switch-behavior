@@ -4,9 +4,10 @@ set -euo pipefail
 # Usage: ./run.sh [MiB] [stride_bytes] [iters]
 # Example: ./run.sh 4096 65536 1
 
-MIB=${1:-32768}
-STRIDE=${2:-65536}
-ITERS=${3:-5}
+MIB=${1:-8192}
+#STRIDE=${2:-65536}
+STRIDE=${2:-1}
+ITERS=${3:-30}
 USE_MANAGED_MEMORY=${4:-1}
 
 export CUDA_MODULE_LOADING=EAGER
@@ -53,7 +54,7 @@ nvidia-smi compute-policy -l
 
 
 nsys profile \
-  -o glmark2_cuda_$(date +%Y%m%d_%H%M%S) \
+  -o glmark2_cuda_managed_mem_$USE_MANAGED_MEMORY-$MIB-MiB-stride-$STRIDE-iter-$ITERS-$(date +%Y%m%d_%H%M%S) \
   --force-overwrite=true \
   --trace=opengl,cuda,nvtx,mpi,osrt \
   -s none --cpuctxsw=none \
