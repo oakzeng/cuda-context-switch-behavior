@@ -5,10 +5,9 @@ set -euo pipefail
 # Example: ./run.sh 4096 65536 1
 
 MIB=${1:-8192}
-#STRIDE=${2:-65536}
-STRIDE=${2:-1}
-ITERS=${3:-30}
-USE_MANAGED_MEMORY=${4:-1}
+STRIDE=${2:-65536}
+ITERS=${3:-2}
+USE_MANAGED_MEMORY=${4:-0}
 
 export CUDA_MODULE_LOADING=EAGER
 
@@ -68,7 +67,7 @@ nsys profile \
     -np 1 -x CUDA_MODULE_LOADING=EAGER \
       ./faulter "$MIB" "$STRIDE" "$ITERS" "$USE_MANAGED_MEMORY" \
     : -np 1 -x CUDA_MODULE_LOADING=EAGER \
-    glmark2_mpi_wrapper
+    glmark2_mpi_wrapper 2
 
 #mpirun --allow-run-as-root --bind-to none --oversubscribe --tag-output \
 #  --wdir "$PWD" \
