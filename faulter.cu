@@ -94,6 +94,7 @@ int main(int argc, char** argv) {
     check(cudaEventCreate(&stop), "event create stop");
 
     MPI_Barrier(MPI_COMM_WORLD);
+    usleep(1000000);
     for (int t = 0; t < iters; ++t) {
 	nvtx3::scoped_range r{"faulter:fault_touch_kernel"};
         check(cudaEventRecord(start, stream), "event record start");
