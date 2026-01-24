@@ -8,6 +8,7 @@ MIB=${1:-8192}
 STRIDE=${2:-65536}
 ITERS=${3:-2}
 USE_MANAGED_MEMORY=${4:-0}
+IN_KERNEL_ITERATION=${4:-25600000}
 
 export CUDA_MODULE_LOADING=EAGER
 
@@ -53,7 +54,7 @@ nvidia-smi compute-policy -l
 
 
 nsys profile \
-  -o glmark2_cuda_managed_mem_$USE_MANAGED_MEMORY-$MIB-MiB-stride-$STRIDE-iter-$ITERS-$(date +%Y%m%d_%H%M%S) \
+  -o glmark2_cuda_managed_mem_$USE_MANAGED_MEMORY-$MIB-MiB-stride-$STRIDE-iter-$ITERS-inkerneliter-$IN_KERNEL_ITERATION-$(date +%Y%m%d_%H%M%S) \
   --force-overwrite=true \
   --trace=opengl,cuda,nvtx,mpi,osrt \
   -s none --cpuctxsw=none \
@@ -65,7 +66,7 @@ nsys profile \
   mpirun --allow-run-as-root --bind-to none --oversubscribe --tag-output \
     --wdir "$PWD" \
     -np 1 -x CUDA_MODULE_LOADING=EAGER \
-      ./faulter "$MIB" "$STRIDE" "$ITERS" "$USE_MANAGED_MEMORY" \
+      ./faulter "$MIB" "$STRIDE" "$ITERS" "$USE_MANAGED_MEMORY" "$IN_KERNEL_ITERATION" \
     : -np 1 -x CUDA_MODULE_LOADING=EAGER \
     glmark2_mpi_wrapper 2
 

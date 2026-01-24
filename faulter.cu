@@ -7,7 +7,7 @@
 
 // Fault-inducing kernel: touch managed memory at page-sized strides to
 // trigger GPU page faults and migrations from CPU -> GPU.
-__global__ void fault_touch_kernel(unsigned char* data, size_t nbytes, size_t stride) {
+__global__ void fault_touch_kernel(unsigned char* data, size_t nbytes, size_t stride, size_t kernel_iteration_k) {
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     size_t total_threads = gridDim.x * (size_t)blockDim.x;
 
@@ -20,7 +20,7 @@ __global__ void fault_touch_kernel(unsigned char* data, size_t nbytes, size_t st
         // Dummy work to avoid all touches happening back-to-back and being optimized out.
         // Use a volatile accumulator to prevent compiler removing the loop.
         volatile int acc = 0;
-        for (int k = 0; k < 256; ++k) {
+        for (int k = 0; k < kernel_iteration_k; ++k) {
             acc += k;
         }
         // Optionally reference acc so it isn't optimized away entirely
@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
     size_t stride = 65536;      // 64 KiB stride to roughly match UVM granularity
     int iters = 1;              // number of kernel iterations
     int use_managed_memory = 1;
+    int kernel_iteration_k = 256;
 
     printf("faulter PID %d\n", getpid());
 
@@ -49,6 +50,7 @@ int main(int argc, char** argv) {
     if (argc > 2) stride = strtoull(argv[2], nullptr, 0);
     if (argc > 3) iters = atoi(argv[3]);
     if (argc > 4) use_managed_memory = atoi(argv[4]);
+    if (argc > 5) kernel_iteration_k = atoi(argv[5]);
     MPI_Init(&argc, &argv);
 
     check(cudaSetDevice(device), "cudaSetDevice");
@@ -100,7 +102,7 @@ int main(int argc, char** argv) {
         check(cudaEventRecord(start, stream), "event record start");
         if (t % 1 == 0) printf("\033[35m [faulter] Iter %d start \033[0m\n", t);
 	//when hipMalloc is used, the kernel complete too quick for observation; use a smaller stride
-        fault_touch_kernel<<<grid, block, 0, stream>>>(data, nbytes, stride);
+        fault_touch_kernel<<<grid, block, 0, stream>>>(data, nbytes, stride, kernel_iteration_k);
         check(cudaGetLastError(), "kernel launch");
         check(cudaEventRecord(stop, stream), "event record stop");
         check(cudaEventSynchronize(stop), "event sync stop");
